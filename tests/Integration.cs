@@ -47,29 +47,30 @@ class Integration {
             Console.WriteLine("PASS different installer/installed hashes do not block configuration");
             SetupLogic.EnsureService(installed,Console.WriteLine);
             const string testServer="support-test.invalid";
-            SetupLogic.ApplyServerConfig(installed,testServer,testServer,Console.WriteLine);
+            SetupLogic.ApplyServerConfig(installed,testServer,"",Console.WriteLine);
             Console.WriteLine("PASS fresh installation configuration read-back");
             SetupLogic.RunCommand(installed,"--option key test-placeholder-public-key",30,false);
             SetupLogic.RunCommand(installed,"--option api-server https://old-server.invalid",30,false);
-            SetupLogic.ApplyServerConfig(installed,testServer,testServer,Console.WriteLine);
-            Console.WriteLine("PASS rerun clears stale key/API and verifies both server addresses");
+            SetupLogic.RunCommand(installed,"--option relay-server old-relay.invalid",30,false);
+            SetupLogic.ApplyServerConfig(installed,testServer,"",Console.WriteLine);
+            Console.WriteLine("PASS rerun clears stale relay/key/API and verifies ID server");
             if(!SetupLogic.IsCurrent(installed,expected)) throw new Exception("Rerun version check failed.");
             Console.WriteLine("PASS current install is retained on rerun");
             RemoveServiceForTest(installed);
             if(!SetupLogic.IsCurrent(installed,expected)) throw new Exception("Missing-service fixture must retain current installed binary.");
-            SetupLogic.ApplyServerConfig(installed,testServer,testServer,Console.WriteLine);
+            SetupLogic.ApplyServerConfig(installed,testServer,"",Console.WriteLine);
             Console.WriteLine("PASS latest version with missing service is repaired and configured");
             using(var service=new ServiceController("RustDesk")) {
                 service.Stop();
                 service.WaitForStatus(ServiceControllerStatus.Stopped,TimeSpan.FromSeconds(30));
             }
-            SetupLogic.ApplyServerConfig(installed,testServer,testServer,Console.WriteLine);
+            SetupLogic.ApplyServerConfig(installed,testServer,"",Console.WriteLine);
             Console.WriteLine("PASS stopped service is started and settings verified");
             RemoveServiceForTest(installed);
             SetupLogic.RunCommand(download,"--silent-install",240,false);
             // A retained stop-service option can prevent service creation during reinstall.
             Thread.Sleep(10000);
-            SetupLogic.ApplyServerConfig(installed,testServer,testServer,Console.WriteLine);
+            SetupLogic.ApplyServerConfig(installed,testServer,"",Console.WriteLine);
             Console.WriteLine("PASS reinstall with retained service-stop setting is repaired and configured");
             return 0;
         } catch(Exception error) { Console.Error.WriteLine(error); return 1; }

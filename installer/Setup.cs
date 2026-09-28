@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("RustDesk 공식 최신 정식 버전 설치 및 서버 주소 설정")]
 [assembly: AssemblyCompany("kjhchhy")]
 [assembly: AssemblyProduct("Remote Support Setup")]
-[assembly: AssemblyVersion("1.0.2.0")]
-[assembly: AssemblyFileVersion("1.0.2.0")]
+[assembly: AssemblyVersion("1.0.3.0")]
+[assembly: AssemblyFileVersion("1.0.3.0")]
 
 namespace RemoteSupport {
     public class ReleaseAsset {
@@ -48,9 +48,11 @@ namespace RemoteSupport {
     }
     public static class SetupLogic {
         public const string Server = "ds307.duckdns.org";
+        // Empty relay lets RustDesk use the relay announced by the ID server.
+        public const string Relay = "";
         public const string LatestUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest";
         public static string ConfigString() {
-            return ConfigString(Server, Server);
+            return ConfigString(Server, Relay);
         }
         public static string ConfigString(string host, string relay) {
             var value = new Dictionary<string, string> {
@@ -192,7 +194,7 @@ namespace RemoteSupport {
                 RunCommand(exe, "--config " + ConfigString(host, relay), 45, false);
                 Thread.Sleep(1500);
                 if (ConfigMatches(delegate(string option) { return RunCommand(exe, "--option " + option, 15, true); }, host, relay)) {
-                    log("Server configuration read-back verified; ID and relay match; key and API are empty");
+                    log("Server configuration read-back verified; ID server matches; relay, key and API are empty");
                     return;
                 }
                 Thread.Sleep(1000);
@@ -216,7 +218,7 @@ namespace RemoteSupport {
         string logFile;
         string installedExe;
         public SetupForm() {
-            Text = "원격지원 설치 · 1.0.2";
+            Text = "원격지원 설치 · 1.0.3";
             ClientSize = new Size(540, 325);
             Font = new Font("맑은 고딕", 10);
             BackColor = Color.White;
@@ -312,14 +314,21 @@ namespace RemoteSupport {
                 } else Log("Current or newer version already installed; no downgrade");
                 Report("원격지원 서버를 설정하고 있습니다…", -1);
                 await Task.Run(delegate {
-                    SetupLogic.ApplyServerConfig(installedExe, SetupLogic.Server, SetupLogic.Server, Log);
+                    SetupLogic.ApplyServerConfig(installedExe, SetupLogic.Server, SetupLogic.Relay, Log);
                 });
                 Report("설치와 서버 설정 확인이 완료되었습니다.", 100);
-                title.Text = "이제 RustDesk를 열어 주세요";
+                title.Text = "RustDesk를 열었어요";
                 detail.Text = "RustDesk에서 ‘준비 완료’가 표시되는지 확인한 뒤\n‘내 데스크탑’의 ID를 지원 담당자에게 알려 주세요.\n연결 요청이 오면 직접 확인하고 승인해 주세요.";
-                finish.Text = "RustDesk 열기";
                 busy = false;
+                OpenRustDesk();
+                installedExe = null;
                 finish.Enabled = true;
+                // Close automatically after success; errors keep the window open for the log link.
+                for (int left = 5; left > 0 && !IsDisposed; left--) {
+                    finish.Text = "닫기 (" + left + "초)";
+                    await Task.Delay(1000);
+                }
+                if (!IsDisposed) Close();
             } catch (Exception error) {
                 try { Log(error.ToString()); } catch { }
                 installedExe = null;
