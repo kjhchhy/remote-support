@@ -1,0 +1,18 @@
+# Synology Container Manager > 프로젝트 > 생성 에서 이 파일을 사용합니다.
+# 비밀번호는 NAS의 같은 폴더에 둔 .env 파일(ADMIN_PASSWORD=...)에만 적고 GitHub에 올리지 마세요.
+services:
+  recent-ids:
+    image: python:3.12-alpine
+    container_name: rustdesk-recent-ids
+    restart: unless-stopped
+    command: ["python", "/app/app.py"]
+    environment:
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?set ADMIN_PASSWORD in .env}
+      HBBS_DB: /data/db_v2.sqlite3
+    volumes:
+      - ./app.py:/app/app.py:ro
+      # hbbs 데이터 폴더(db_v2.sqlite3가 있는 곳)로 바꿔 주세요. 조회만 하며 쓰지 않습니다.
+      - /volume1/docker/rustdesk/data:/data
+    ports:
+      # NAS 내부에서만 열고, DSM 역방향 프록시(HTTPS)를 통해서만 접근합니다.
+      - "127.0.0.1:8088:8088"

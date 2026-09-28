@@ -27,6 +27,10 @@ Windows 10/11 64비트 사용자가 설치 도우미를 실행하면 RustDesk �
 
 프로그램만 남아 있고 Windows 서비스가 없으면 공식 `--install-service` 명령으로 서비스를 복구합니다. 중지된 서비스는 시작합니다. 서비스 복구 중에도 기존 원격 연결이 끊길 수 있습니다. 서비스가 실행되고 네트워크 설정을 다시 읽어 확인한 뒤에만 완료로 표시합니다.
 
+## 관리자 조회 페이지
+
+사이트 오른쪽 위 ‘관리자’ 버튼은 NAS에서 돌아가는 `https://ds307.duckdns.org/`로 연결됩니다. 비밀번호를 입력하면 ds307 서버에 최근 등록된 RustDesk ID 5개를 보여줍니다. 설정 방법은 [server/README.md](server/README.md)를 보세요. 비밀번호는 저장소에 넣지 않습니다.
+
 ## 빌드 및 배포
 
 Windows PowerShell에서 `./build.ps1`을 실행합니다. 결과는 `dist/RemoteSupportSetup.exe`, `dist/SHA256SUMS.txt`입니다. .NET Framework 기본 C# 컴파일러를 사용하며 외부 패키지는 필요 없습니다.
