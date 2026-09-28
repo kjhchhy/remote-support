@@ -37,6 +37,17 @@ class Tests {
             var verified=new ReleaseAsset {size=3,digest="sha256:"+SetupLogic.Hash(file)};
             SetupLogic.Verify(file,verified); Check(true,"matching download accepted");
             File.AppendAllText(file,"tampered"); Reject(delegate {SetupLogic.Verify(file,verified);},"tampered download rejected");
+            var options=new Dictionary<string,string> { {"custom-rendezvous-server",SetupLogic.Server}, {"relay-server",SetupLogic.Server}, {"key",""}, {"api-server",""} };
+            Func<string,string> read=delegate(string option) {return options[option];};
+            Check(SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"matching server settings accepted");
+            options["key"]="stale-key";
+            Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"stale public key fails read-back"); options["key"]="";
+            options["relay-server"]="wrong.invalid";
+            Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"wrong relay fails read-back"); options["relay-server"]=SetupLogic.Server;
+            options["custom-rendezvous-server"]="";
+            Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"missing ID server fails read-back"); options["custom-rendezvous-server"]=SetupLogic.Server;
+            options["api-server"]="https://old.invalid";
+            Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"stale API fails read-back");
             Console.WriteLine(count+" tests passed; no installation or settings were changed."); return 0;
         } catch(Exception e) {Console.Error.WriteLine(e);return 1;}
     }

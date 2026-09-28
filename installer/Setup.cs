@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("RustDesk 공식 최신 정식 버전 설치 및 서버 주소 설정")]
 [assembly: AssemblyCompany("kjhchhy")]
 [assembly: AssemblyProduct("Remote Support Setup")]
-[assembly: AssemblyVersion("1.0.0.0")]
-[assembly: AssemblyFileVersion("1.0.0.0")]
+[assembly: AssemblyVersion("1.0.1.0")]
+[assembly: AssemblyFileVersion("1.0.1.0")]
 
 namespace RemoteSupport {
     public class ReleaseAsset {
@@ -50,8 +50,11 @@ namespace RemoteSupport {
         public const string Server = "ds307.duckdns.org";
         public const string LatestUrl = "https://api.github.com/repos/rustdesk/rustdesk/releases/latest";
         public static string ConfigString() {
+            return ConfigString(Server, Server);
+        }
+        public static string ConfigString(string host, string relay) {
             var value = new Dictionary<string, string> {
-                {"host", Server}, {"relay", Server}, {"key", ""}, {"api", ""}
+                {"host", host}, {"relay", relay}, {"key", ""}, {"api", ""}
             };
             string json = new JavaScriptSerializer().Serialize(value);
             char[] encoded = Convert.ToBase64String(Encoding.UTF8.GetBytes(json)).TrimEnd('=').Replace('+', '-').Replace('/', '_').ToCharArray();
@@ -118,6 +121,56 @@ namespace RemoteSupport {
             try { return ParseVersion(FileVersionInfo.GetVersionInfo(exe).FileVersion) >= expected; }
             catch { return false; }
         }
+        public static string RunCommand(string exe, string args, int timeoutSeconds, bool capture) {
+            var info = new ProcessStartInfo(exe, args) {
+                UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetDirectoryName(exe),
+                RedirectStandardOutput = capture, RedirectStandardError = capture
+            };
+            using (var process = Process.Start(info)) {
+                Task<string> output = capture ? process.StandardOutput.ReadToEndAsync() : null;
+                Task<string> error = capture ? process.StandardError.ReadToEndAsync() : null;
+                if (!process.WaitForExit(timeoutSeconds * 1000)) throw new System.TimeoutException("RustDesk 작업이 예상보다 오래 걸립니다. 잠시 후 다시 실행해 주세요.");
+                if (process.ExitCode != 0) throw new InvalidOperationException("RustDesk 작업이 실패했습니다. 오류 코드: " + process.ExitCode);
+                if (!capture) return "";
+                if (!Task.WaitAll(new Task[] { output, error }, 5000)) throw new System.TimeoutException("RustDesk 설정 확인 응답이 지연되고 있습니다.");
+                return output.Result.Trim();
+            }
+        }
+        public static void EnsureService() {
+            // The portable installer can exit before its unpacked child finishes installation.
+            DateTime deadline = DateTime.UtcNow.AddSeconds(90);
+            Exception lastError = null;
+            do {
+                try {
+                    using (var service = new ServiceController("RustDesk")) {
+                        service.Refresh();
+                        if (service.Status == ServiceControllerStatus.Running) return;
+                        if (service.Status == ServiceControllerStatus.Stopped) service.Start();
+                    }
+                } catch (InvalidOperationException error) { lastError = error; }
+                  catch (System.ComponentModel.Win32Exception error) { lastError = error; }
+                Thread.Sleep(1500);
+            } while (DateTime.UtcNow < deadline);
+            throw new InvalidOperationException("RustDesk 서비스가 준비되지 않았습니다. 잠시 후 다시 실행해 주세요.", lastError);
+        }
+        public static bool ConfigMatches(Func<string, string> readOption, string host, string relay) {
+            return readOption("custom-rendezvous-server") == host && readOption("relay-server") == relay &&
+                readOption("key") == "" && readOption("api-server") == "";
+        }
+        public static void ApplyServerConfig(string exe, string host, string relay, Action<string> log) {
+            EnsureService();
+            for (int attempt = 1; attempt <= 3; attempt++) {
+                log("Applying server configuration; attempt " + attempt);
+                RunCommand(exe, "--config " + ConfigString(host, relay), 45, false);
+                Thread.Sleep(1500);
+                if (ConfigMatches(delegate(string option) { return RunCommand(exe, "--option " + option, 15, true); }, host, relay)) {
+                    log("Server configuration read-back verified; ID and relay match; key and API are empty");
+                    return;
+                }
+                Thread.Sleep(1000);
+            }
+            throw new InvalidOperationException("설치는 완료됐지만 서버 설정을 확인하지 못했습니다. 도우미를 다시 실행해 주세요.");
+        }
         public static TimedClient Client() {
             var client = new TimedClient();
             client.Headers[HttpRequestHeader.UserAgent] = "kjhchhy-RemoteSupportSetup/1.0";
@@ -135,7 +188,7 @@ namespace RemoteSupport {
         string logFile;
         string installedExe;
         public SetupForm() {
-            Text = "원격지원 설치";
+            Text = "원격지원 설치 · 1.0.1";
             ClientSize = new Size(540, 325);
             Font = new Font("맑은 고딕", 10);
             BackColor = Color.White;
@@ -180,18 +233,7 @@ namespace RemoteSupport {
             return path;
         }
         void Run(string exe, string args, int timeoutSeconds) {
-            var info = new ProcessStartInfo(exe, args) { UseShellExecute = false, CreateNoWindow = true, WorkingDirectory = Path.GetDirectoryName(exe) };
-            using (var process = Process.Start(info)) {
-                if (!process.WaitForExit(timeoutSeconds * 1000)) throw new System.TimeoutException("설치 작업이 예상보다 오래 걸립니다. 설치가 끝난 뒤 도우미를 다시 실행해 주세요.");
-                if (process.ExitCode != 0) throw new InvalidOperationException("RustDesk 작업이 실패했습니다. 오류 코드: " + process.ExitCode);
-            }
-        }
-        void EnsureService() {
-            using (var service = new ServiceController("RustDesk")) {
-                if (service.Status == ServiceControllerStatus.StopPending) service.WaitForStatus(ServiceControllerStatus.Stopped, TimeSpan.FromSeconds(30));
-                if (service.Status == ServiceControllerStatus.Stopped) service.Start();
-                service.WaitForStatus(ServiceControllerStatus.Running, TimeSpan.FromSeconds(45));
-            }
+            SetupLogic.RunCommand(exe, args, timeoutSeconds, false);
         }
         void OpenRustDesk() {
             try { Process.Start(new ProcessStartInfo(installedExe) { UseShellExecute = true }); }
@@ -204,6 +246,7 @@ namespace RemoteSupport {
                 ServicePointManager.SecurityProtocol = SecurityProtocolType.Tls12;
                 string work = SecureWorkDir();
                 logFile = Path.Combine(work, "setup.log");
+                Log("Setup version " + Assembly.GetExecutingAssembly().GetName().Version);
                 string json;
                 using (var client = SetupLogic.Client()) json = await client.DownloadStringTaskAsync(SetupLogic.LatestUrl);
                 var release = new JavaScriptSerializer().Deserialize<Release>(json);
@@ -232,19 +275,18 @@ namespace RemoteSupport {
                             Thread.Sleep(1500);
                         } while (DateTime.UtcNow < deadline);
                         if (!SetupLogic.IsCurrent(installedExe, expected)) throw new InvalidOperationException("설치된 버전을 확인할 수 없습니다. 잠시 후 다시 실행해 주세요.");
-                        SetupLogic.Verify(installedExe, asset);
+                        // The download is a self-extracting package, not the installed executable.
+                        // Its SHA-256 is verified before execution; validate the installed version and service here.
+                        SetupLogic.EnsureService();
+                        Log("Installed version verified: " + FileVersionInfo.GetVersionInfo(installedExe).FileVersion);
                     });
                     try { File.Delete(download); } catch { }
                 } else Log("Current or newer version already installed; no downgrade");
                 Report("원격지원 서버를 설정하고 있습니다…", -1);
                 await Task.Run(delegate {
-                    EnsureService();
-                    Run(installedExe, "--config " + SetupLogic.ConfigString(), 45);
-                    Thread.Sleep(2500);
-                    EnsureService();
+                    SetupLogic.ApplyServerConfig(installedExe, SetupLogic.Server, SetupLogic.Server, Log);
                 });
-                Log("Server config command completed; service running");
-                Report("설치와 서버 설정 명령이 완료되었습니다.", 100);
+                Report("설치와 서버 설정 확인이 완료되었습니다.", 100);
                 title.Text = "이제 RustDesk를 열어 주세요";
                 detail.Text = "RustDesk에서 ‘준비 완료’가 표시되는지 확인한 뒤\n‘내 데스크탑’의 ID를 지원 담당자에게 알려 주세요.\n연결 요청이 오면 직접 확인하고 승인해 주세요.";
                 finish.Text = "RustDesk 열기";
