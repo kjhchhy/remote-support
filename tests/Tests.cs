@@ -48,6 +48,9 @@ class Tests {
             Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"missing ID server fails read-back"); options["custom-rendezvous-server"]=SetupLogic.Server;
             options["api-server"]="https://old.invalid";
             Check(!SetupLogic.ConfigMatches(read,SetupLogic.Server,SetupLogic.Server),"stale API fails read-back");
+            Check(SetupLogic.IsMissingService(new InvalidOperationException("wrapper",new System.ComponentModel.Win32Exception(1060))),"nested missing-service error recognized");
+            Check(!SetupLogic.IsMissingService(new System.ComponentModel.Win32Exception(5)),"access denied is not treated as missing service");
+            Check(!SetupLogic.IsMissingService(null),"no error does not trigger service repair");
             Console.WriteLine(count+" tests passed; no installation or settings were changed."); return 0;
         } catch(Exception e) {Console.Error.WriteLine(e);return 1;}
     }

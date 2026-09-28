@@ -6,7 +6,7 @@ $testDir = Join-Path $repo 'work\integration'
 New-Item -ItemType Directory -Force -Path $testDir | Out-Null
 Copy-Item -LiteralPath (Join-Path $repo 'dist\RemoteSupportSetup.exe') -Destination $testDir -Force
 $runner = Join-Path $testDir 'Integration.exe'
-& $compiler /nologo /target:exe /utf8output "/out:$runner" "/reference:$testDir\RemoteSupportSetup.exe" /reference:System.Web.Extensions.dll "$PSScriptRoot\Integration.cs"
+& $compiler /nologo /target:exe /utf8output "/out:$runner" "/reference:$testDir\RemoteSupportSetup.exe" /reference:System.Web.Extensions.dll /reference:System.ServiceProcess.dll "$PSScriptRoot\Integration.cs"
 if ($LASTEXITCODE -ne 0) { throw 'Integration test build failed.' }
 & $runner
 if ($LASTEXITCODE -ne 0) { throw 'Integration tests failed.' }

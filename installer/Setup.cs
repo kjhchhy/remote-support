@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("RustDesk 공식 최신 정식 버전 설치 및 서버 주소 설정")]
 [assembly: AssemblyCompany("kjhchhy")]
 [assembly: AssemblyProduct("Remote Support Setup")]
-[assembly: AssemblyVersion("1.0.1.0")]
-[assembly: AssemblyFileVersion("1.0.1.0")]
+[assembly: AssemblyVersion("1.0.2.0")]
+[assembly: AssemblyFileVersion("1.0.2.0")]
 
 namespace RemoteSupport {
     public class ReleaseAsset {
@@ -136,19 +136,47 @@ namespace RemoteSupport {
                 return output.Result.Trim();
             }
         }
-        public static void EnsureService() {
+        public static bool IsMissingService(Exception error) {
+            for (Exception current = error; current != null; current = current.InnerException) {
+                var native = current as System.ComponentModel.Win32Exception;
+                if (native != null && native.NativeErrorCode == 1060) return true;
+            }
+            return false;
+        }
+        public static void EnsureService(string exe, Action<string> log) {
             // The portable installer can exit before its unpacked child finishes installation.
             DateTime deadline = DateTime.UtcNow.AddSeconds(90);
+            DateTime repairAfter = DateTime.UtcNow.AddSeconds(3);
+            bool repairRequested = false;
             Exception lastError = null;
             do {
                 try {
                     using (var service = new ServiceController("RustDesk")) {
                         service.Refresh();
-                        if (service.Status == ServiceControllerStatus.Running) return;
-                        if (service.Status == ServiceControllerStatus.Stopped) service.Start();
+                        ServiceControllerStatus serviceStatus = service.Status;
+                        lastError = null;
+                        if (serviceStatus == ServiceControllerStatus.Running) {
+                            log("RustDesk service is running");
+                            return;
+                        }
+                        if (serviceStatus == ServiceControllerStatus.Stopped) {
+                            log("Starting stopped RustDesk service");
+                            service.Start();
+                        }
                     }
-                } catch (InvalidOperationException error) { lastError = error; }
-                  catch (System.ComponentModel.Win32Exception error) { lastError = error; }
+                } catch (InvalidOperationException error) {
+                    if (!IsMissingService(error)) throw new InvalidOperationException("RustDesk 서비스를 시작하지 못했습니다. 오류 기록을 확인해 주세요.", error);
+                    lastError = error;
+                } catch (System.ComponentModel.Win32Exception error) {
+                    if (!IsMissingService(error)) throw new InvalidOperationException("RustDesk 서비스를 시작하지 못했습니다. 오류 기록을 확인해 주세요.", error);
+                    lastError = error;
+                }
+                if (IsMissingService(lastError) && !repairRequested && DateTime.UtcNow >= repairAfter) {
+                    log("RustDesk service is missing; repairing with --install-service");
+                    repairRequested = true;
+                    RunCommand(exe, "--install-service", 60, false);
+                    lastError = null;
+                }
                 Thread.Sleep(1500);
             } while (DateTime.UtcNow < deadline);
             throw new InvalidOperationException("RustDesk 서비스가 준비되지 않았습니다. 잠시 후 다시 실행해 주세요.", lastError);
@@ -158,7 +186,7 @@ namespace RemoteSupport {
                 readOption("key") == "" && readOption("api-server") == "";
         }
         public static void ApplyServerConfig(string exe, string host, string relay, Action<string> log) {
-            EnsureService();
+            EnsureService(exe, log);
             for (int attempt = 1; attempt <= 3; attempt++) {
                 log("Applying server configuration; attempt " + attempt);
                 RunCommand(exe, "--config " + ConfigString(host, relay), 45, false);
@@ -188,7 +216,7 @@ namespace RemoteSupport {
         string logFile;
         string installedExe;
         public SetupForm() {
-            Text = "원격지원 설치 · 1.0.1";
+            Text = "원격지원 설치 · 1.0.2";
             ClientSize = new Size(540, 325);
             Font = new Font("맑은 고딕", 10);
             BackColor = Color.White;
@@ -277,7 +305,7 @@ namespace RemoteSupport {
                         if (!SetupLogic.IsCurrent(installedExe, expected)) throw new InvalidOperationException("설치된 버전을 확인할 수 없습니다. 잠시 후 다시 실행해 주세요.");
                         // The download is a self-extracting package, not the installed executable.
                         // Its SHA-256 is verified before execution; validate the installed version and service here.
-                        SetupLogic.EnsureService();
+                        SetupLogic.EnsureService(installedExe, Log);
                         Log("Installed version verified: " + FileVersionInfo.GetVersionInfo(installedExe).FileVersion);
                     });
                     try { File.Delete(download); } catch { }
