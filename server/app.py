@@ -17,6 +17,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 DB_PATH = os.environ.get("HBBS_DB", "/data/db_v2.sqlite3")
 KEY_PATH = os.environ.get("HBBS_KEY", os.path.join(os.path.dirname(DB_PATH), "id_ed25519.pub"))
 ID_SERVER = os.environ.get("ID_SERVER", "ds307.duckdns.org")
+# The short address people are told; the root forwards to the public install guide.
+SITE_URL = os.environ.get("SITE_URL", "https://kjhchhy.github.io/remote-support/")
 PASSWORD = os.environ.get("ADMIN_PASSWORD", "")
 PORT = int(os.environ.get("PORT", "8088"))
 LIMIT = 5
@@ -128,7 +130,14 @@ class Handler(BaseHTTPRequestHandler):
         return ok
 
     def do_GET(self):
-        if self.path not in ("/", "/index.html"):
+        path = self.path.split("?", 1)[0]
+        if path in ("/", "/index.html"):
+            self.send(302, "", {"Location": SITE_URL})
+            return
+        if path == "/admin/":
+            self.send(301, "", {"Location": "/admin"})
+            return
+        if path != "/admin":
             self.send(404, "Not found")
             return
         ip = self.client_ip()

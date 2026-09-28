@@ -29,7 +29,7 @@ Windows 10/11 64비트 사용자가 설치 도우미를 실행하면 RustDesk �
 
 ## 관리자 조회 페이지
 
-사이트 오른쪽 위 ‘관리자’ 버튼은 NAS에서 돌아가는 `https://ds307.duckdns.org/`로 연결됩니다. 비밀번호를 입력하면 ds307 서버에 최근 등록된 RustDesk ID 5개를 보여줍니다. 설정 방법은 [server/README.md](server/README.md)를 보세요. 비밀번호는 저장소에 넣지 않습니다.
+사이트 오른쪽 위 안내할 때는 짧은 주소 **ds307.duckdns.org**를 알려주면 이 사이트로 자동 이동합니다. 오른쪽 위 ‘관리자’ 버튼은 NAS에서 돌아가는 `https://ds307.duckdns.org/admin`으로 연결됩니다. 비밀번호를 입력하면 ds307 서버에 최근 등록된 RustDesk ID 5개를 보여줍니다. 설정 방법은 [server/README.md](server/README.md)를 보세요. 비밀번호는 저장소에 넣지 않습니다.
 
 ## 빌드 및 배포
 
