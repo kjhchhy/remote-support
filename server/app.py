@@ -82,7 +82,7 @@ code{{font:15px ui-monospace,Consolas,monospace;word-break:break-all;user-select
 <p>ds307 서버에 처음 등록된 순서로 최근 {LIMIT}대입니다. 시간은 한국 시간입니다.</p>
 <table><thead><tr><th>ID</th><th>등록 시각</th><th>접속 IP</th></tr></thead><tbody>{rows}</tbody></table>
 <h2>외부 PC에 직접 설정할 때</h2><p>RustDesk 설정 &gt; 네트워크 &gt; ID/릴레이 서버에 입력합니다. 값을 한 번 누르면 전체가 선택됩니다.</p>
-<dl><dt>ID 서버</dt><dd><code>{html.escape(ID_SERVER)}</code></dd><dt>릴레이 서버</dt><dd>비워 두기</dd><dt>Key</dt><dd><code>{key_html}</code></dd></dl>
+<dl><dt>ID 서버</dt><dd><code>{html.escape(ID_SERVER)}</code></dd><dt>Key</dt><dd><code>{key_html}</code></dd></dl>
 </main></body></html>"""
 
 
