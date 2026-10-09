@@ -11,7 +11,7 @@
 </head>
 <body>
   <main>
-    <header><span class="brand-mark" aria-hidden="true">↗</span><span>원격지원</span><span class="platform">Windows 10 · 11</span><a class="admin" href="https://ds307.duckdns.org:7001/" rel="nofollow noreferrer">파일 관리자</a><a class="admin" href="https://ds307.duckdns.org/admin" rel="nofollow noreferrer">관리자</a></header>
+    <header><span class="brand-mark" aria-hidden="true">↗</span><span>원격지원</span><span class="platform">Windows 10 · 11</span><details class="files-menu"><summary class="admin">파일 관리자</summary><nav class="files-list" aria-label="NAS 바로가기"><a href="https://ilovehy.direct.quickconnect.to:7007/" target="_blank" rel="nofollow noreferrer"><strong>메인 NAS 파일 관리</strong><span>HomeNas</span></a><a href="https://ds307.duckdns.org:7007/" target="_blank" rel="nofollow noreferrer"><strong>서브 NAS 파일 관리</strong><span>DS307</span></a><a href="https://ds307.duckdns.org:8008/" target="_blank" rel="nofollow noreferrer"><strong>다운로드 스테이션</strong><span>DS307 (서브 NAS)</span></a></nav></details><a class="admin" href="https://ds307.duckdns.org/admin" rel="nofollow noreferrer">관리자</a></header>
     <section class="setup" aria-labelledby="heading">
       <div class="intro"><p class="eyebrow">컴퓨터 도움이 필요할 때</p><h1 id="heading">설정은 자동으로.<br>지원은 편하게.</h1><p class="lead">설치 도우미가 최신 RustDesk를 설치하고<br class="desktop-break"> 원격지원 서버까지 설정해 드려요.</p></div>
       <div class="download-panel">
@@ -32,5 +32,10 @@
     <details><summary>설치가 잘 안 되나요?</summary><div class="help"><p><strong>관리자 비밀번호를 물어본다면</strong><br>이 PC의 관리자에게 설치를 요청해 주세요.</p><p><strong>Windows가 파일 실행을 차단한다면</strong><br>이 도우미는 별도의 코드 서명이 없는 개인 배포 프로그램입니다. 표시된 안내를 지원 담당자에게 알려 주세요.</p><p><strong>인터넷 연결 오류가 표시된다면</strong><br>인터넷 연결을 확인한 뒤 잠시 후 다시 실행해 주세요.</p><p><strong>이미 RustDesk가 설치되어 있다면</strong><br>이전 버전은 업데이트하고, 최신 버전은 서버 설정을 적용합니다. 업데이트 중 기존 원격 연결은 잠시 끊길 수 있습니다.</p></div></details>
     <footer><span>kjhchhy의 개인 원격지원 안내</span><a href="https://github.com/kjhchhy/remote-support">설치 도우미 소스 보기</a><span>RustDesk 공식 사이트가 아닙니다.</span></footer>
   </main>
+  <script>
+    const filesMenu = document.querySelector('.files-menu');
+    document.addEventListener('click', e => { if (filesMenu.open && (!filesMenu.contains(e.target) || e.target.closest('.files-list a'))) filesMenu.open = false; });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && filesMenu.open) { filesMenu.open = false; filesMenu.querySelector('summary').focus(); } });
+  </script>
 </body>
 </html>
