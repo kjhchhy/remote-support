@@ -21,8 +21,8 @@ using Microsoft.Win32;
 [assembly: AssemblyDescription("RustDesk 공식 최신 정식 버전 설치 및 서버 주소 설정")]
 [assembly: AssemblyCompany("kjhchhy")]
 [assembly: AssemblyProduct("Remote Support Setup")]
-[assembly: AssemblyVersion("1.0.3.0")]
-[assembly: AssemblyFileVersion("1.0.3.0")]
+[assembly: AssemblyVersion("1.0.4.0")]
+[assembly: AssemblyFileVersion("1.0.4.0")]
 
 namespace RemoteSupport {
     public class ReleaseAsset {
@@ -147,9 +147,14 @@ namespace RemoteSupport {
         }
         public static void EnsureService(string exe, Action<string> log) {
             // The portable installer can exit before its unpacked child finishes installation.
-            DateTime deadline = DateTime.UtcNow.AddSeconds(90);
+            // A fresh RustDesk service can also need longer than the SCM's default 30s start
+            // window (config migration, first-run setup), so a 1053 "did not respond in a
+            // timely manner" is retried instead of failing the whole install, and a stale
+            // registration left by an upgrade is repaired once.
+            DateTime deadline = DateTime.UtcNow.AddSeconds(180);
             DateTime repairAfter = DateTime.UtcNow.AddSeconds(3);
             bool repairRequested = false;
+            int startTimeouts = 0;
             Exception lastError = null;
             do {
                 try {
@@ -163,7 +168,18 @@ namespace RemoteSupport {
                         }
                         if (serviceStatus == ServiceControllerStatus.Stopped) {
                             log("Starting stopped RustDesk service");
-                            service.Start();
+                            try { service.Start(); }
+                            catch (System.ComponentModel.Win32Exception startError) {
+                                if (startError.NativeErrorCode == 1053) {
+                                    // The SCM gave up waiting, but the service often reaches
+                                    // Running a few seconds later. Keep polling.
+                                    startTimeouts++;
+                                    lastError = startError;
+                                    log("RustDesk service start is still pending (1053); waiting");
+                                } else if (startError.NativeErrorCode == 1056) {
+                                    log("RustDesk service is already starting (1056); waiting");
+                                } else throw;
+                            }
                         }
                     }
                 } catch (InvalidOperationException error) {
@@ -177,6 +193,16 @@ namespace RemoteSupport {
                     log("RustDesk service is missing; repairing with --install-service");
                     repairRequested = true;
                     RunCommand(exe, "--install-service", 60, false);
+                    lastError = null;
+                }
+                // Repeated 1053s usually mean the upgrade left a stale service registration.
+                // Re-register the service once, then keep waiting for it to come up.
+                if (startTimeouts >= 2 && !repairRequested) {
+                    log("RustDesk service start keeps timing out; re-registering with --install-service");
+                    repairRequested = true;
+                    startTimeouts = 0;
+                    try { RunCommand(exe, "--uninstall-service", 60, false); } catch (Exception repairError) { log("Service removal before repair failed: " + repairError.Message); }
+                    try { RunCommand(exe, "--install-service", 60, false); } catch (Exception repairError) { log("Service re-registration failed: " + repairError.Message); }
                     lastError = null;
                 }
                 Thread.Sleep(1500);
@@ -218,7 +244,7 @@ namespace RemoteSupport {
         string logFile;
         string installedExe;
         public SetupForm() {
-            Text = "원격지원 설치 · 1.0.3";
+            Text = "원격지원 설치 · 1.0.4";
             ClientSize = new Size(540, 325);
             Font = new Font("맑은 고딕", 10);
             BackColor = Color.White;
